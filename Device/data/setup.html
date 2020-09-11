@@ -1,1 +1,67 @@
-hi
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<html lang="en">
+<head>
+	<title>WiFi Setup</title>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+		window.onload = function () {
+			document.getElementById("form_submit").onsubmit = submit;
+		};
+
+		function changeText() {
+			document.getElementById("button_submit").disabled = document.getElementById("input_ssid").value.length === 0 || document.getElementById("input_password").value.length < 8;
+		}
+
+		function submit(event) {
+			event.preventDefault();
+			console.log(event);
+			const buttonSubmit = document.getElementById("button_submit");
+			buttonSubmit.value = "Please Wait";
+			buttonSubmit.disabled = true;
+			fetch(`/wifi?ssid=${event.target[0].value}&password=${event.target[1].value}`, {
+				method: "POST",
+				body: "",
+				headers: {
+					"Content-type": "application/json; charset=UTF-8"
+				}
+			}).then(response => response.json()).then(data => {
+				buttonSubmit.value = "Save";
+				buttonSubmit.disabled = false;
+				showMessage("WiFi settings saved. You're good to go!");
+			}).catch(error => {
+				buttonSubmit.value = "Save";
+				buttonSubmit.disabled = false;
+				showMessage("An error occurred. Please try again.");
+			});
+		}
+
+		function showMessage(message) {
+			const textMessage = document.getElementById("text_message");
+			textMessage.innerText = message;
+			textMessage.removeAttribute("hidden");
+			setTimeout(() => {
+				textMessage.setAttribute("hidden", "");
+			}, 5000);
+		}
+	</script>
+</head>
+
+<body>
+<h1>Let's get started with your Smart Home Device.</h1>
+<h2>Please enter your WiFi information.</h2>
+<form id="form_submit">
+	<label>
+		<input id="input_ssid" class="input_text" type="text" placeholder="WiFi SSID" oninput="changeText()"/>
+	</label>
+	<br/>
+	<label>
+		<input id="input_password" class="input_text" type="text" placeholder="Password" oninput="changeText()"/>
+	</label>
+	<br/>
+	<input id="button_submit" class="input_button" type="submit" disabled value="Save"/>
+</form>
+<p hidden id="text_message"></p>
+</body>
+</html>

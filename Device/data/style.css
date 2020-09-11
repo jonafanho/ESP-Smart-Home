@@ -1,0 +1,164 @@
+/*
+* Prefixed by https://autoprefixer.github.io
+* PostCSS: v7.0.29,
+* Autoprefixer: v9.7.6
+* Browsers: last 999 version
+*/
+
+:root {
+	--backgroundColor: #FFFFFF;
+	--accentColorDisabled: #DDDDDD;
+	--textColorDisabled: #BBBBBB;
+	--accentColor: #999999;
+	--accentColorButtonHover: #777777;
+	--accentColorLinkHover: #777777;
+	--textColorLink: #222222;
+	--textColor: #000000;
+	/*Hover: 60% opacity on white*/
+	/*Disabled: 20% opacity on white*/
+	--blue: #4169E1;
+	--blueHover: #8DA5ED;
+	--blueDisabled: #D9E1F9;
+	--red: #CC0000;
+	--redHover: #E06666;
+	--redDisabled: #F5CCCC;
+	--green: #008000;
+	--greenHover: #66B366;
+	--greenDisabled: #CCE6CC;
+	--yellow: #FFFF00;
+	--yellowHover: #FFFF66;
+	--yellowDisabled: #FFFFCC;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--backgroundColor: #000000;
+		--accentColorDisabled: #222222;
+		--textColorDisabled: #666666;
+		--accentColor: #666666;
+		--accentColorButtonHover: #888888;
+		--accentColorLinkHover: #AAAAAA;
+		--textColorLink: #DDDDDD;
+		--textColor: #FFFFFF;
+		/*Hover: 80% opacity on black*/
+		/*Disabled: 40% opacity on black*/
+		--blue: #6090FF;
+		--blueHover: #4D73CC;
+		--blueDisabled: #263A66;
+		--red: #CC0000;
+		--redHover: #A30000;
+		--redDisabled: #520000;
+		--green: #00CC00;
+		--greenHover: #00A300;
+		--greenDisabled: #005200;
+		--yellow: #CCCC00;
+		--yellowHover: #A3A300;
+		--yellowDisabled: #525200;
+	}
+}
+
+:root {
+	--textSize: 1em;
+}
+
+* {
+	font-family: sans-serif;
+}
+
+body {
+	-webkit-align-content: center;
+	-ms-flex-line-pack: center;
+	align-content: center;
+	background-color: var(--backgroundColor);
+	color: var(--textColor);
+	padding: 2em;
+	text-align: center;
+}
+
+p {
+	font-size: var(--textSize);
+}
+
+input {
+	margin: 0.25em;
+}
+
+a {
+	cursor: pointer;
+	color: var(--textColorLink);
+	text-decoration: underline;
+	transition: color 0.1s;
+}
+
+a:hover {
+	color: var(--accentColorLinkHover);
+}
+
+a:active {
+	color: var(--accentColor);
+}
+
+a.no_underline {
+	text-decoration: none;
+}
+
+a.disabled {
+	color: var(--textColorDisabled);
+	cursor: auto;
+	text-decoration: none;
+}
+
+table {
+	margin: auto;
+	text-align: center;
+}
+
+table, th, td {
+	border-collapse: collapse;
+}
+
+th, td {
+	padding: 0.5em 0.25em;
+}
+
+.input_button {
+	background-color: var(--accentColor);
+	border: 1px solid var(--accentColor);
+	-webkit-border-radius: 0.5em;
+	-moz-border-radius: 0.5em;
+	border-radius: 0.5em;
+	color: white;
+	cursor: pointer;
+	display: inline-block;
+	font-size: var(--textSize);
+	padding: 1em;
+	text-align: center;
+	transition: background 0.1s, border 0.1s;
+	width: 12em;
+}
+
+.input_button:hover {
+	background-color: var(--accentColorButtonHover);
+	border: 1px solid var(--accentColorButtonHover);
+}
+
+.input_button:disabled {
+	background-color: var(--accentColorDisabled);
+	border: 1px solid var(--accentColorDisabled);
+	color: var(--textColorDisabled);
+	cursor: auto;
+}
+
+.input_text {
+	background-color: transparent;
+	border: 1px solid var(--accentColor);
+	-webkit-border-radius: 0.5em;
+	-moz-border-radius: 0.5em;
+	border-radius: 0.5em;
+	color: var(--textColor);
+	display: inline-block;
+	font-size: var(--textSize);
+	padding: 1em;
+	text-align: left;
+	width: 12em;
+}
