@@ -26,7 +26,10 @@ public:
 		WiFi.persistent(false);
 		WiFi.disconnect(true);
 		if (digitalRead(SETUP_PIN)) {
+			delay(10);
 			(*callback)(WIFI_STATUS_AP_STARTING, "");
+			delay(10);
+
 			WiFi.mode(WIFI_AP);
 			const IPAddress apIp(192, 168, 0, 1);
 			WiFi.softAPConfig(apIp, apIp, IPAddress(255, 255, 255, 0));
@@ -35,7 +38,10 @@ public:
 			dnsServer.start(DNS_PORT, "*", apIp);
 			server.onNotFound([&]() { onRequest(SETUP_HTML); });
 			server.begin();
+
+			delay(10);
 			(*callback)(WIFI_STATUS_AP_STARTED, const_cast<char *> (apIp.toString().c_str()));
+			delay(10);
 		} else {
 			connectToWifi(callback);
 		}
@@ -48,13 +54,16 @@ private:
 	const uint8_t SETUP_PIN;
 
 	bool connectToWifi(void (*callback)(WiFiStatus, char *)) {
-		(*callback)(WIFI_STATUS_CONNECTING, "");
 		File wifiFile = SPIFFS.open("/wifi.txt", "r");
 		if (wifiFile) {
 			char ssid[64], password[64];
 			ssid[wifiFile.readBytesUntil('\n', ssid, sizeof(ssid) - 1)] = 0;
 			password[wifiFile.readBytesUntil('\n', password, sizeof(password) - 1)] = 0;
 			wifiFile.close();
+
+			delay(10);
+			(*callback)(WIFI_STATUS_CONNECTING, ssid);
+			delay(10);
 
 			WiFi.mode(WIFI_STA);
 			WiFi.begin(ssid, password);
@@ -64,13 +73,17 @@ private:
 				} else {
 					server.onNotFound([&]() { onRequest(DEFAULT_HTML); });
 					server.begin();
+
+					delay(10);
 					(*callback)(WIFI_STATUS_CONNECTED, ssid);
+					delay(10);
+
 					return true;
 				}
 			}
-		} else {
-			return false;
 		}
+
+		return false;
 	}
 
 	void onRequest(const char *defaultPath) {
