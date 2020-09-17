@@ -7,7 +7,11 @@
 
 	<script>
 		window.onload = function () {
+			const wifiInfo = readFile("wifi.txt").split(/\r?\n/);
+			document.getElementById("input_ssid").value = wifiInfo[0];
+			document.getElementById("input_password").value = wifiInfo[1];
 			document.getElementById("form_submit").onsubmit = submit;
+			changeText();
 		};
 
 		function changeText() {
@@ -44,6 +48,15 @@
 			setTimeout(() => {
 				textMessage.setAttribute("hidden", "");
 			}, 5000);
+		}
+
+		function readFile(path) {
+			const request = new XMLHttpRequest();
+			request.open("GET", path, false);
+			request.send();
+			if (request.status === 200) {
+				return request.responseText;
+			}
 		}
 	</script>
 </head>

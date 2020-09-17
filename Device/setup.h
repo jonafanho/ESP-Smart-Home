@@ -5,13 +5,15 @@
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
 
-#define DNS_PORT 53
+#define DNS_PORT  53
+#define WIFI_FILE "/wifi.txt"
 
 enum WiFiStatus {
 	WIFI_STATUS_AP_STARTING = 0,
 	WIFI_STATUS_AP_STARTED = 1,
 	WIFI_STATUS_CONNECTING = 2,
-	WIFI_STATUS_CONNECTED = 3
+	WIFI_STATUS_CONNECTED = 3,
+	WIFI_STATUS_FAILED = 4
 };
 
 class WiFiSetup {
@@ -19,29 +21,15 @@ public:
 	WiFiSetup(ESP8266WebServer &server1, DNSServer &dnsServer1, const char *apSsid, const char *defaultHtml, const char *setupHtml, const uint8_t setupPin) :
 			server(server1), dnsServer(dnsServer1), AP_SSID(apSsid), DEFAULT_HTML(defaultHtml), SETUP_HTML(setupHtml), SETUP_PIN(setupPin) {}
 
-	void setup(void (*callback)(WiFiStatus, char *)) {
+	void setup(void (*callback)(WiFiStatus, char *, char *)) {
 		SPIFFS.begin();
 		pinMode(SETUP_PIN, OUTPUT);
 
 		WiFi.persistent(false);
 		WiFi.disconnect(true);
+
 		if (digitalRead(SETUP_PIN)) {
-			delay(10);
-			(*callback)(WIFI_STATUS_AP_STARTING, "");
-			delay(10);
-
-			WiFi.mode(WIFI_AP);
-			const IPAddress apIp(192, 168, 0, 1);
-			WiFi.softAPConfig(apIp, apIp, IPAddress(255, 255, 255, 0));
-			WiFi.softAP(AP_SSID);
-			dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-			dnsServer.start(DNS_PORT, "*", apIp);
-			server.onNotFound([&]() { onRequest(SETUP_HTML); });
-			server.begin();
-
-			delay(10);
-			(*callback)(WIFI_STATUS_AP_STARTED, const_cast<char *> (apIp.toString().c_str()));
-			delay(10);
+			startAccessPoint(callback);
 		} else {
 			connectToWifi(callback);
 		}
@@ -53,35 +41,82 @@ private:
 	const char *AP_SSID, *DEFAULT_HTML, *SETUP_HTML;
 	const uint8_t SETUP_PIN;
 
-	bool connectToWifi(void (*callback)(WiFiStatus, char *)) {
-		File wifiFile = SPIFFS.open("/wifi.txt", "r");
+	void startAccessPoint(void (*callback)(WiFiStatus, char *, char *)) {
+		delay(10);
+		(*callback)(WIFI_STATUS_AP_STARTING, "", "");
+		delay(10);
+
+		WiFi.mode(WIFI_AP);
+		const IPAddress apIp(192, 168, 0, 1);
+		WiFi.softAPConfig(apIp, apIp, IPAddress(255, 255, 255, 0));
+		WiFi.softAP(AP_SSID);
+		dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+		dnsServer.start(DNS_PORT, "*", apIp);
+
+		server.onNotFound([&]() { onRequest(SETUP_HTML); });
+		server.on("/wifi", HTTP_POST, [&]() {
+			File wifiFile = SPIFFS.open(WIFI_FILE, "w");
+			if (wifiFile) {
+				wifiFile.println(server.arg("ssid"));
+				wifiFile.println(server.arg("password"));
+				wifiFile.close();
+				server.send(200, "text/html", "{\"status\":\"success\"}");
+			}
+		});
+		server.begin();
+
+		delay(10);
+		(*callback)(WIFI_STATUS_AP_STARTED, const_cast<char *> (apIp.toString().c_str()), "");
+		delay(10);
+	}
+
+	bool connectToWifi(void (*callback)(WiFiStatus, char *, char *)) {
+		delay(10);
+		(*callback)(WIFI_STATUS_CONNECTING, "", "");
+		delay(10);
+
+		File wifiFile = SPIFFS.open(WIFI_FILE, "r");
 		if (wifiFile) {
 			char ssid[64], password[64];
-			ssid[wifiFile.readBytesUntil('\n', ssid, sizeof(ssid) - 1)] = 0;
-			password[wifiFile.readBytesUntil('\n', password, sizeof(password) - 1)] = 0;
+			const uint8_t ssidLength = wifiFile.readBytesUntil('\n', ssid, sizeof(ssid) - 1);
+			if (ssid[ssidLength - 1] == '\r') {
+				ssid[ssidLength - 1] = 0;
+			} else {
+				ssid[ssidLength] = 0;
+			}
+			const uint8_t passwordLength = wifiFile.readBytesUntil('\n', password, sizeof(password) - 1);
+			if (password[passwordLength - 1] == '\r') {
+				password[passwordLength - 1] = 0;
+			} else {
+				password[passwordLength] = 0;
+			}
 			wifiFile.close();
-
-			delay(10);
-			(*callback)(WIFI_STATUS_CONNECTING, ssid);
-			delay(10);
 
 			WiFi.mode(WIFI_STA);
 			WiFi.begin(ssid, password);
 			for (uint8_t i = 0; i < 10; i++) {
 				if (WiFi.status() != WL_CONNECTED) {
+					char text[6];
+					sprintf(text, "%d/10", i + 1);
+					delay(1000);
+					(*callback)(WIFI_STATUS_CONNECTING, text, ssid);
 					delay(1000);
 				} else {
 					server.onNotFound([&]() { onRequest(DEFAULT_HTML); });
 					server.begin();
 
 					delay(10);
-					(*callback)(WIFI_STATUS_CONNECTED, ssid);
+					(*callback)(WIFI_STATUS_CONNECTED, const_cast<char *> (WiFi.localIP().toString().c_str()), ssid);
 					delay(10);
 
 					return true;
 				}
 			}
 		}
+
+		delay(10);
+		(*callback)(WIFI_STATUS_FAILED, "", "");
+		delay(10);
 
 		return false;
 	}

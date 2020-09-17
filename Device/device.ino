@@ -55,6 +55,11 @@ void drawText(char *text, const int16_t x, const int16_t y, const TextSize size,
 	lcd.print(text);
 }
 
+void writeHeader(char *text1, char *text2) {
+	drawText(text1, 0, 24, TEXT_SMALL, TEXT_CENTER);
+	drawText(text2, 0, 60, TEXT_SMALL, TEXT_CENTER);
+}
+
 void setup() {
 	pinMode(PIN_RELAY_CS, OUTPUT);
 
@@ -62,31 +67,37 @@ void setup() {
 	lcd.fillScreen(ST77XX_BLACK);
 	lcd.setTextWrap(false);
 
-	wiFiSetup.setup([&](WiFiStatus wiFiStatus, char *text) {
+	wiFiSetup.setup([&](WiFiStatus wiFiStatus, char *title, char *subtitle) {
 		switch (wiFiStatus) {
 			case WIFI_STATUS_AP_STARTING:
 				lcd.drawBitmap(72, 144, ICON_TETHERING, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
-				drawText("Starting Access Point", 0, 24, TEXT_SMALL, TEXT_CENTER);
+				writeHeader("Starting Access Point", ACCESS_POINT_SSID);
 				break;
 			case WIFI_STATUS_AP_STARTED:
 				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
 				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
 				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
-				drawText("Connect to WiFi:", 0, 24, TEXT_SMALL, TEXT_CENTER);
-				drawText(ACCESS_POINT_SSID, 0, 60, TEXT_SMALL, TEXT_CENTER);
+				writeHeader("Connect to WiFi:", "");
 				break;
 			case WIFI_STATUS_CONNECTING:
 				lcd.drawBitmap(72, 144, ICON_WIFI_ON, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
-				drawText("Connecting to WiFi", 0, 24, TEXT_SMALL, TEXT_CENTER);
+				writeHeader("Connecting to WiFi", subtitle);
 				break;
 			case WIFI_STATUS_CONNECTED:
 				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
 				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
 				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
-				drawText("Connected to WiFi", 0, 24, TEXT_SMALL, TEXT_CENTER);
+				writeHeader("Connected to WiFi", subtitle);
+				break;
+			case WIFI_STATUS_FAILED:
+				lcd.fillRect(72, 144, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_BLACK);
+				lcd.drawBitmap(72, 144, ICON_WIFI_OFF, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
+				lcd.fillRect(0, 0, LCD_SIZE, 72, ST77XX_BLACK);
+				writeHeader("WiFi Not Connected", "Please try again.");
 				break;
 		}
-		drawText(text, 0, 120, TEXT_MEDIUM, TEXT_CENTER);
+		lcd.fillRect(0, 84, LCD_SIZE, 54, ST77XX_BLACK);
+		drawText(title, 0, 120, TEXT_MEDIUM, TEXT_CENTER);
 	});
 }
 
