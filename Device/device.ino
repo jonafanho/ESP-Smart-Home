@@ -1,8 +1,11 @@
 #include "setup.h"
+#include "icons.h"
 #include <Adafruit_ST7789.h>
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
 #include <Fonts/FreeSans24pt7b.h>
+
+#define LCD_SIZE   240
 
 #define PIN_BUTTON   D0
 #define PIN_LCD_CS   D8
@@ -10,59 +13,80 @@
 #define PIN_LCD_RST  D2
 #define PIN_RELAY_CS D3
 
-#define ACCESS_POINT_SSID "Jonathan's Smart Home Device"
+#define ACCESS_POINT_SSID "Smart Home Setup"
 #define DEFAULT_HTML      "index.html"
 #define SETUP_HTML        "setup.html"
+
+enum TextSize {
+	TEXT_SMALL = 0,
+	TEXT_MEDIUM = 1,
+	TEXT_LARGE = 2
+};
+enum TextAlign {
+	TEXT_LEFT = 0,
+	TEXT_CENTER = 1,
+	TEXT_RIGHT = 2
+};
 
 ESP8266WebServer server(80);
 DNSServer dnsServer;
 WiFiSetup wiFiSetup(server, dnsServer, ACCESS_POINT_SSID, DEFAULT_HTML, SETUP_HTML, PIN_BUTTON);
 Adafruit_ST7789 lcd = Adafruit_ST7789(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
 
-void drawText(char *text, uint8_t row, const uint8_t size, const uint16_t color = ST77XX_WHITE) {
-	uint8_t lineSpacing;
+void drawText(char *text, const int16_t x, const int16_t y, const TextSize size, const TextAlign align, const uint16_t color = ST77XX_WHITE) {
 	switch (size) {
 		default:
-			lineSpacing = 24;
 			lcd.setFont(&FreeSans12pt7b);
 			break;
 		case 1:
-			lineSpacing = 36;
 			lcd.setFont(&FreeSans18pt7b);
 			break;
 		case 2:
-			lineSpacing = 48;
 			lcd.setFont(&FreeSans24pt7b);
 			break;
 	}
-	lcd.setCursor(0, lineSpacing * row + lineSpacing);
+
+	int16_t x1, y1;
+	uint16_t width, height;
+	lcd.getTextBounds(text, x, y, &x1, &y1, &width, &height);
+	lcd.setCursor(x + align * (LCD_SIZE - width) / 2, y);
+
 	lcd.setTextColor(color);
-	lcd.setTextWrap(false);
 	lcd.print(text);
 }
 
 void setup() {
 	pinMode(PIN_RELAY_CS, OUTPUT);
 
-	lcd.init(240, 240, SPI_MODE2);
+	lcd.init(LCD_SIZE, LCD_SIZE, SPI_MODE2);
+	lcd.fillScreen(ST77XX_BLACK);
+	lcd.setTextWrap(false);
 
 	wiFiSetup.setup([&](WiFiStatus wiFiStatus, char *text) {
-		lcd.fillScreen(ST77XX_BLACK);
 		switch (wiFiStatus) {
 			case WIFI_STATUS_AP_STARTING:
-				drawText("Starting Access Point", 0, 0);
+				lcd.drawBitmap(72, 144, ICON_TETHERING, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
+				drawText("Starting Access Point", 0, 24, TEXT_SMALL, TEXT_CENTER);
 				break;
 			case WIFI_STATUS_AP_STARTED:
-				drawText(ACCESS_POINT_SSID, 0, 0);
+				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
+				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
+				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
+				drawText("Connect to WiFi:", 0, 24, TEXT_SMALL, TEXT_CENTER);
+				drawText(ACCESS_POINT_SSID, 0, 60, TEXT_SMALL, TEXT_CENTER);
 				break;
 			case WIFI_STATUS_CONNECTING:
-				drawText("Connecting to WiFi", 0, 0);
+				lcd.drawBitmap(72, 144, ICON_WIFI_ON, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
+				drawText("Connecting to WiFi", 0, 24, TEXT_SMALL, TEXT_CENTER);
 				break;
 			case WIFI_STATUS_CONNECTED:
-				drawText("Connected to WiFi", 0, 0);
+				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
+				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
+				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
+				drawText("Connected to WiFi", 0, 24, TEXT_SMALL, TEXT_CENTER);
 				break;
 		}
-		drawText(text, 1, 0);
+		drawText(text, 0, 120, TEXT_MEDIUM, TEXT_CENTER);
 	});
 }
 
