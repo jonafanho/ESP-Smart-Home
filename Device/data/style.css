@@ -114,11 +114,12 @@ table {
 }
 
 table, th, td {
+	border: 0.1em solid var(--textColorDisabled);
 	border-collapse: collapse;
 }
 
 th, td {
-	padding: 0.5em 0.25em;
+	padding: 1em;
 }
 
 .input_button {
@@ -161,4 +162,68 @@ th, td {
 	padding: 1em;
 	text-align: left;
 	width: 12em;
+}
+
+.input_checkbox {
+	-webkit-appearance: none;
+	border: 1px solid var(--textColor);
+	-webkit-border-radius: 0.5em;
+	-moz-border-radius: 0.5em;
+	border-radius: 0.5em;
+	cursor: pointer;
+	display: inline-block;
+	height: 2em;
+	outline: none;
+	vertical-align: middle;
+	width: 2em;
+}
+
+.input_checkbox:checked {
+	background-color: var(--textColor);
+}
+
+.add_button {
+	color: var(--textColorLink);
+	cursor: pointer;
+	display: inline-block;
+	font-size: 3em;
+	transition: color 0.1s;
+}
+
+.add_button:hover {
+	color: var(--accentColorLinkHover);
+}
+
+.condition {
+	background-color: var(--accentColorDisabled);
+	display: inline-block;
+	height: 18em;
+	margin: 0.5em;
+	padding: 1em;
+	vertical-align: middle;
+}
+
+.condition.time, .condition.dayOfWeek {
+	background-color: var(--blueDisabled);
+}
+
+.condition.temperature, .condition.humidity {
+	background-color: var(--redDisabled);
+}
+
+.condition.light {
+	background-color: var(--yellowDisabled);
+}
+
+.condition.proximity {
+	background-color: var(--greenDisabled);
+}
+
+.column_ports {
+	min-width: 6em;
+}
+
+.column_conditions {
+	text-align: left;
+	width: 100%;
 }
