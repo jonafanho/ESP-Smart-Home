@@ -182,41 +182,54 @@ th, td {
 	background-color: var(--textColor);
 }
 
-.add_button {
+.clickable {
 	color: var(--textColorLink);
 	cursor: pointer;
-	display: inline-block;
-	font-size: 3em;
 	transition: color 0.1s;
 }
 
-.add_button:hover {
+.clickable:hover {
 	color: var(--accentColorLinkHover);
+}
+
+.add_button {
+	display: inline-block;
+}
+
+.add_button.text {
+	font-size: 3em;
 }
 
 .condition {
 	background-color: var(--accentColorDisabled);
+	border: 1px solid var(--accentColor);
 	display: inline-block;
 	height: 18em;
+	width: 12em;
 	margin: 0.5em;
 	padding: 1em;
+	position: relative;
 	vertical-align: middle;
 }
 
 .condition.time, .condition.dayOfWeek {
 	background-color: var(--blueDisabled);
+	border-color: var(--blue);
 }
 
 .condition.temperature, .condition.humidity {
 	background-color: var(--redDisabled);
+	border-color: var(--red);
 }
 
 .condition.light {
 	background-color: var(--yellowDisabled);
+	border-color: var(--yellow);
 }
 
 .condition.proximity {
 	background-color: var(--greenDisabled);
+	border-color: var(--green);
 }
 
 .column_ports {
@@ -226,4 +239,14 @@ th, td {
 .column_conditions {
 	text-align: left;
 	width: 100%;
+}
+
+.column_add_conditions {
+	min-width: 6em;
+	text-align: left;
+}
+
+.delete_button {
+	position: absolute;
+	right: 1.25em;
 }

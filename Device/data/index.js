@@ -3,35 +3,41 @@ const DEFAULT_RULES = [...Array(PORT_COUNT)].map((u, i) => []);
 const CONDITIONS = {
 	"time": {
 		name: "The time of day is",
+		icon: "⏰",
 		min: 0,
 		max: 1440,
 		conversion: "time"
 	},
 	"dayOfWeek": {
 		name: "The day of week is",
+		icon: "📅",
 		values: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 	},
 	"temperature": {
 		name: "The temperature is",
+		icon: "🌡️",
 		min: -273,
 		max: 1000,
 		unit: "&deg;C"
 	},
 	"humidity": {
 		name: "The humidity is",
+		icon: "💧",
 		min: 0,
 		max: 100,
 		unit: "%"
 	},
 	"light": {
 		name: "The light level is",
+		icon: "💡",
 		min: 0,
 		max: 100,
 		unit: "%"
 	},
 	"proximity": {
 		name: "Motion detector",
-		values: ["People detected"]
+		icon: "🍃",
+		values: ["Motion detected"]
 	}
 };
 
@@ -91,80 +97,117 @@ function setup() {
 			super(props);
 			this.addRule = this.addRule.bind(this);
 			this.addCondition = this.addCondition.bind(this);
+			this.deleteCondition = this.deleteCondition.bind(this);
 		}
 
 		addRule(event) {
-			this.props.rules.push([]);
+			if (this.canAddRule()) {
+				this.props.rules.push({});
+				this.setState({});
+			}
+		}
+
+		addCondition(ruleIndex, conditionId, event) {
+			this.props.rules[ruleIndex][conditionId] = Object.assign({}, CONDITIONS[conditionId]);
 			this.setState({});
 		}
 
-		addCondition(ruleIndex, event) {
-			this.props.rules[ruleIndex].push(Object.assign({id: "time"}, CONDITIONS["time"]));
+		deleteCondition(ruleIndex, conditionId, event) {
+			delete this.props.rules[ruleIndex][conditionId];
+			if (Object.keys(this.props.rules[ruleIndex]).length === 0) {
+				this.props.rules.splice(ruleIndex, 1);
+			}
 			this.setState({});
+		}
+
+		canAddRule() {
+			const ruleCount = this.props.rules.length;
+			return ruleCount === 0 || Object.keys(this.props.rules[ruleCount - 1]).length > 0;
+		}
+
+		getAvailableConditions(ruleIndex) {
+			return Object.keys(CONDITIONS).filter(key => !(key in this.props.rules[ruleIndex]));
+		}
+
+		portName(index) {
+			const {rules, edit} = this.props;
+			return (
+				<td className="column_ports" rowSpan={Math.max(rules.length, 1)}>
+					<h2>Port {index + 1}</h2>
+					{edit && this.canAddRule() ? <a onClick={this.addRule}>Add Rule</a> : null}
+				</td>
+			);
 		}
 
 		render() {
 			const {rules, index, edit} = this.props;
-			return (
-				<tr>
-					<td className="column_ports"><h2>Port {index + 1}</h2></td>
-					<td className="column_conditions">
-						{[...Array(rules.length)].map((u, ruleIndex) =>
-							<div>
-								{rules[ruleIndex].map(condition =>
-									<Condition condition={condition} edit={edit}/>
-								)}
-								{edit ? <AddButton onClick={(event) => this.addCondition(ruleIndex, event)}/> : null}
-							</div>
+			const ruleCount = rules.length;
+			if (ruleCount === 0) {
+				return <tr>{this.portName(index)}</tr>;
+			} else {
+				return (
+					<>
+						{[...Array(ruleCount)].map((u, ruleIndex) =>
+							<tr key={ruleIndex}>
+								{ruleIndex === 0 ? this.portName(index) : null}
+								<td className="column_conditions">
+									{Object.keys(rules[ruleIndex]).map(conditionId =>
+										<Condition
+											key={`condition_${ruleIndex}_${conditionId}`}
+											conditionId={conditionId}
+											condition={rules[ruleIndex][conditionId]}
+											onDelete={() => this.deleteCondition(ruleIndex, conditionId)}
+											edit={edit}
+										/>
+									)}
+								</td>
+								<td className="column_add_conditions">
+									{edit ? this.getAvailableConditions(ruleIndex).map(conditionId =>
+										<AddButton
+											key={`add_${ruleIndex}_${conditionId}`}
+											icon={CONDITIONS[conditionId]["icon"]}
+											onClick={(event) => this.addCondition(ruleIndex, conditionId, event)}
+										/>
+									) : null}
+								</td>
+							</tr>
 						)}
-						{edit ? <AddButton onClick={this.addRule}/> : null}
-					</td>
-				</tr>
-			);
+					</>
+				);
+			}
 		}
 	}
 
 	function AddButton(props) {
-		return <div className="add_button" onClick={props["onClick"]}>+</div>;
+		return (
+			<div className="clickable" onClick={props["onClick"]}>
+				<div className="add_button text">+</div>
+				<div className="add_button">{props["icon"]}</div>
+			</div>
+		);
 	}
 
 	class Condition extends React.Component {
 
 		constructor(props) {
 			super(props);
-			this.changeCondition = this.changeCondition.bind(this);
 			this.state = {};
 		}
 
-		changeCondition(event) {
-			const {condition} = this.props;
-			condition["id"] = event.target.value;
-			this.setState({});
-		}
-
 		render() {
-			const {condition, edit} = this.props;
-			const details = CONDITIONS[condition["id"]];
+			const {conditionId, condition, onDelete, edit} = this.props;
+			const details = CONDITIONS[conditionId];
 			const isDiscrete = "values" in details;
 			return (
-				<div className={`condition ${condition["id"]}`}>
-					{edit ?
-						<select onChange={this.changeCondition}>
-							{Object.keys(CONDITIONS).map(conditionKey =>
-								<option
-									key={conditionKey}
-									selected={condition["id"] === conditionKey}
-									value={conditionKey}
-								>{CONDITIONS[conditionKey]["name"]}</option>
-							)}
-						</select> :
-						details["name"]
-					}
+				<div className={`condition ${conditionId}`}>
+					{edit ? <div className="clickable delete_button" onClick={onDelete}>✖</div> : null}
+					{condition["icon"]} {details["name"]}
 					<br/>
-					{isDiscrete ? [...Array(details["values"].length)].map((u, index) =>
-							<div>
+					{isDiscrete ?
+						[...Array(details["values"].length)].map((u, index) =>
+							<div key={index}>
 								<label>
-									<input key={index} className="input_checkbox" type="checkbox"/>
+									<input className="input_checkbox" type="checkbox"/>
 									{details["values"][index]}
 								</label>
 								<br/>
