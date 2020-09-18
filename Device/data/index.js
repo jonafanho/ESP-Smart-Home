@@ -101,10 +101,9 @@ function setup() {
 		}
 
 		addRule(event) {
-			if (this.canAddRule()) {
-				this.props.rules.push({});
-				this.setState({});
-			}
+			this.props.rules.push({});
+			this.addCondition(this.props.rules.length - 1, Object.keys(CONDITIONS)[0], event);
+			this.setState({});
 		}
 
 		addCondition(ruleIndex, conditionId, event) {
@@ -120,21 +119,14 @@ function setup() {
 			this.setState({});
 		}
 
-		canAddRule() {
-			const ruleCount = this.props.rules.length;
-			return ruleCount === 0 || Object.keys(this.props.rules[ruleCount - 1]).length > 0;
-		}
-
-		getAvailableConditions(ruleIndex) {
-			return Object.keys(CONDITIONS).filter(key => !(key in this.props.rules[ruleIndex]));
-		}
-
 		portName(index) {
 			const {rules, edit} = this.props;
+			const ruleCount = rules.length;
+			const canAddRule = edit && (ruleCount === 0 || Object.keys(this.props.rules[ruleCount - 1]).length > 0);
 			return (
-				<td className="column_ports" rowSpan={Math.max(rules.length, 1)}>
+				<td className="column_fixed_width column_port_name" rowSpan={Math.max(rules.length, 1)}>
 					<h2>Port {index + 1}</h2>
-					{edit && this.canAddRule() ? <a onClick={this.addRule}>Add Rule</a> : null}
+					{canAddRule ? <a onClick={this.addRule}>Add Rule</a> : null}
 				</td>
 			);
 		}
@@ -143,35 +135,46 @@ function setup() {
 			const {rules, index, edit} = this.props;
 			const ruleCount = rules.length;
 			if (ruleCount === 0) {
-				return <tr>{this.portName(index)}</tr>;
+				return (
+					<tr>
+						{this.portName(index)}
+						<td className="column_fixed_width">Always off</td>
+						<td className="column_conditions"/>
+						<td className="column_fixed_width column_add_conditions"/>
+					</tr>
+				);
 			} else {
 				return (
 					<>
-						{[...Array(ruleCount)].map((u, ruleIndex) =>
-							<tr key={ruleIndex}>
-								{ruleIndex === 0 ? this.portName(index) : null}
-								<td className="column_conditions">
-									{Object.keys(rules[ruleIndex]).map(conditionId =>
-										<Condition
-											key={`condition_${ruleIndex}_${conditionId}`}
-											conditionId={conditionId}
-											condition={rules[ruleIndex][conditionId]}
-											onDelete={() => this.deleteCondition(ruleIndex, conditionId)}
-											edit={edit}
-										/>
-									)}
-								</td>
-								<td className="column_add_conditions">
-									{edit ? this.getAvailableConditions(ruleIndex).map(conditionId =>
-										<AddButton
-											key={`add_${ruleIndex}_${conditionId}`}
-											icon={CONDITIONS[conditionId]["icon"]}
-											onClick={(event) => this.addCondition(ruleIndex, conditionId, event)}
-										/>
-									) : null}
-								</td>
-							</tr>
-						)}
+						{[...Array(ruleCount)].map((u, ruleIndex) => {
+							const availableConditions = Object.keys(CONDITIONS).filter(key => !(key in this.props.rules[ruleIndex]));
+							return (
+								<tr key={ruleIndex}>
+									{ruleIndex === 0 ? this.portName(index) : null}
+									<td className="column_fixed_width">{ruleIndex === 0 ? "On when" : "or when"}</td>
+									<td className="column_conditions">
+										{Object.keys(rules[ruleIndex]).map(conditionId =>
+											<Condition
+												conditionId={conditionId}
+												key={`condition_${ruleIndex}_${conditionId}`}
+												condition={rules[ruleIndex][conditionId]}
+												onDelete={() => this.deleteCondition(ruleIndex, conditionId)}
+												edit={edit}
+											/>
+										)}
+									</td>
+									<td className="column_fixed_width column_add_conditions">
+										{edit ? availableConditions.map(conditionId =>
+											<AddButton
+												key={`add_${ruleIndex}_${conditionId}`}
+												icon={CONDITIONS[conditionId]["icon"]}
+												onClick={(event) => this.addCondition(ruleIndex, conditionId, event)}
+											/>
+										) : null}
+									</td>
+								</tr>
+							);
+						})}
 					</>
 				);
 			}

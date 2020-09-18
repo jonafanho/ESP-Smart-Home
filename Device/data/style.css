@@ -114,7 +114,8 @@ table {
 }
 
 table, th, td {
-	border: 0.1em solid var(--textColorDisabled);
+	border-bottom: 1px solid var(--textColorDisabled);
+	border-top: 1px solid var(--textColorDisabled);
 	border-collapse: collapse;
 }
 
@@ -232,8 +233,14 @@ th, td {
 	border-color: var(--green);
 }
 
-.column_ports {
-	min-width: 6em;
+.column_fixed_width {
+	min-width: 8em;
+}
+
+.column_port_name {
+	border-left: 1px solid var(--textColorDisabled);
+	border-right: 1px solid var(--textColorDisabled);
+	height: 8em;
 }
 
 .column_conditions {
@@ -242,7 +249,7 @@ th, td {
 }
 
 .column_add_conditions {
-	min-width: 6em;
+	border-right: 1px solid var(--textColorDisabled);
 	text-align: left;
 }
 
