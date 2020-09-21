@@ -11,7 +11,8 @@ const CONDITIONS = {
 	"dayOfWeek": {
 		name: "The day of week is",
 		icon: "📅",
-		values: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+		values: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+		none: "(none)"
 	},
 	"temperature": {
 		name: "The temperature is",
@@ -37,7 +38,8 @@ const CONDITIONS = {
 	"proximity": {
 		name: "Motion detector",
 		icon: "🍃",
-		values: ["Motion detected"]
+		values: ["Motion detected"],
+		none: "No motion detected"
 	}
 };
 const COMPARISONS = ["less than", "greater than", "between", "not between"];
@@ -60,28 +62,30 @@ function setup() {
 				const rules = this.state.rules;
 				rules.map(port => port.map(rule => Object.keys(rule).map(conditionId => {
 					const details = CONDITIONS[conditionId];
-					const detailsMin = details["min"];
-					const detailsMax = details["max"];
-					const condition = rule[conditionId];
-					if (Number.isNaN(condition["min"]) || condition["min"] === "") {
-						condition["min"] = detailsMin;
-					}
-					if (Number.isNaN(condition["max"]) || condition["max"] === "") {
-						condition["max"] = detailsMax;
-					}
-					const comparison = condition["comparison"];
-					let swapValues;
-					if (details["type"] === "time") {
-						swapValues = comparison >= 2 && parseInt(condition["min"].replace(/:/g, "")) > parseInt(condition["max"].replace(/:/g, ""));
-					} else {
-						condition["min"] = Math.min(Math.max(detailsMin, condition["min"]), detailsMax);
-						condition["max"] = Math.min(Math.max(detailsMin, condition["max"]), detailsMax);
-						swapValues = comparison >= 2 && condition["min"] > condition["max"];
-					}
-					if (swapValues) {
-						const temp = condition["min"];
-						condition["min"] = condition["max"];
-						condition["max"] = temp;
+					if (!("values" in details)) {
+						const detailsMin = details["min"];
+						const detailsMax = details["max"];
+						const condition = rule[conditionId];
+						if (Number.isNaN(condition["min"]) || condition["min"] === "") {
+							condition["min"] = detailsMin;
+						}
+						if (Number.isNaN(condition["max"]) || condition["max"] === "") {
+							condition["max"] = detailsMax;
+						}
+						const comparison = condition["comparison"];
+						let swapValues;
+						if (details["type"] === "time") {
+							swapValues = comparison >= 2 && parseInt(condition["min"].replace(/:/g, "")) > parseInt(condition["max"].replace(/:/g, ""));
+						} else {
+							condition["min"] = Math.min(Math.max(detailsMin, condition["min"]), detailsMax);
+							condition["max"] = Math.min(Math.max(detailsMin, condition["max"]), detailsMax);
+							swapValues = comparison >= 2 && condition["min"] > condition["max"];
+						}
+						if (swapValues) {
+							const temp = condition["min"];
+							condition["min"] = condition["max"];
+							condition["max"] = temp;
+						}
 					}
 				})));
 				fetch(`/settings?`, {
@@ -142,11 +146,11 @@ function setup() {
 		addCondition(ruleIndex, conditionId, event) {
 			const details = CONDITIONS[conditionId];
 			const isDiscrete = "values" in details;
-			this.props.rules[ruleIndex][conditionId] = {
-				comparison: 0,
-				min: isDiscrete ? 0 : details["min"],
-				max: isDiscrete ? 0 : details["max"]
-			};
+			if (isDiscrete) {
+				this.props.rules[ruleIndex][conditionId] = {comparison: 0, values: []};
+			} else {
+				this.props.rules[ruleIndex][conditionId] = {comparison: 0, min: details["min"], max: details["max"]};
+			}
 			this.setState({});
 		}
 
@@ -235,6 +239,7 @@ function setup() {
 			super(props);
 			this.selectComparison = this.selectComparison.bind(this);
 			this.changeValue = this.changeValue.bind(this);
+			this.changeDiscrete = this.changeDiscrete.bind(this);
 		}
 
 		selectComparison(event) {
@@ -257,6 +262,18 @@ function setup() {
 			condition[dataType] = eventValue;
 		}
 
+		changeDiscrete(event) {
+			const {condition} = this.props;
+			const value = event.target.value;
+			if (event.target.checked) {
+				if (!condition["values"].includes(value)) {
+					condition["values"].push(value);
+				}
+			} else {
+				condition["values"].splice(condition["values"].indexOf(value), 1);
+			}
+		}
+
 		displayValue(value) {
 			const {conditionId} = this.props;
 			if (CONDITIONS[conditionId]["type"] === "time") {
@@ -277,22 +294,31 @@ function setup() {
 			const comparison = condition["comparison"];
 			const isTime = details["type"] === "time";
 			return (
-				<div className={`condition ${conditionId}`}>
+				<div className={`condition ${conditionId} ${edit ? "" : "small"}`}>
 					{edit ? <div className="clickable delete_button" onClick={onDelete}>✖</div> : null}
 					{details["icon"]} {details["name"]}
 					<br/>
 					<br/>
 					{isDiscrete ?
 						<div>
-							{[...Array(details["values"].length)].map((u, index) =>
-								<div key={index}>
-									<label>
-										<input className="input_checkbox" disabled={!edit} type="checkbox"/>
-										{details["values"][index]}
-									</label>
-									<br/>
-								</div>
-							)}
+							{edit ? [...Array(details["values"].length)].map((u, index) => {
+								const value = details["values"][index];
+								return (
+									<div key={index}>
+										<label>
+											<input
+												className="input_checkbox"
+												defaultChecked={condition["values"].includes(value)}
+												type="checkbox"
+												value={value}
+												onChange={this.changeDiscrete}
+											/>
+											{value}
+										</label>
+										<br/>
+									</div>
+								);
+							}) : condition["values"].length > 0 ? details["values"].filter(value => condition["values"].includes(value)).toString().replace(/,/g, ", ") : details["none"]}
 						</div> :
 						edit ? <div>
 								<select defaultValue={comparison} className="input_text" onChange={this.selectComparison}>
@@ -331,15 +357,10 @@ function setup() {
 							</div> :
 							<div>
 								{isTime ? COMPARISONS_TIME[comparison] : COMPARISONS[comparison]}
-								<div hidden={comparison === 0}>
-									{this.displayValue(condition["min"])}{details["unit"]}
-								</div>
-								<div hidden={comparison <= 1}>
-									and
-								</div>
-								<div hidden={comparison === 1}>
-									{this.displayValue(condition["max"])}{details["unit"]}
-								</div>
+								&nbsp;
+								{comparison === 0 ? "" : <>{this.displayValue(condition["min"])}{details["unit"]}</>}
+								{comparison <= 1 ? "" : <><br/>and&nbsp;</>}
+								{comparison === 1 ? "" : <>{this.displayValue(condition["max"])}{details["unit"]}</>}
 							</div>
 					}
 				</div>

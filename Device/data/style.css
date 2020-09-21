@@ -218,6 +218,10 @@ th, td {
 	vertical-align: middle;
 }
 
+.condition.small {
+	height: 6em;
+}
+
 .condition.time, .condition.dayOfWeek {
 	background-color: var(--blueDisabled);
 	border-color: var(--blue);
