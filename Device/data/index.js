@@ -16,8 +16,8 @@ const CONDITIONS = {
 	"temperature": {
 		name: "The temperature is",
 		icon: "🌡️",
-		min: -273,
-		max: 1000,
+		min: -10,
+		max: 60,
 		unit: "°C"
 	},
 	"humidity": {
@@ -51,12 +51,39 @@ function setup() {
 		constructor(props) {
 			super(props);
 			this.editOrSave = this.editOrSave.bind(this);
-			this.state = {edit: false, rules: Object.assign({}, DEFAULT_RULES)};
+			this.state = {edit: false, saveDisabled: false, rules: Object.assign([], DEFAULT_RULES)};
 		}
 
 		editOrSave(event) {
-			const isEdit = this.state.edit;
-			if (isEdit) {
+			if (this.state.edit) {
+				this.setState({saveDisabled: true});
+				const rules = this.state.rules;
+				rules.map(port => port.map(rule => Object.keys(rule).map(conditionId => {
+					const details = CONDITIONS[conditionId];
+					const detailsMin = details["min"];
+					const detailsMax = details["max"];
+					const condition = rule[conditionId];
+					if (Number.isNaN(condition["min"]) || condition["min"] === "") {
+						condition["min"] = detailsMin;
+					}
+					if (Number.isNaN(condition["max"]) || condition["max"] === "") {
+						condition["max"] = detailsMax;
+					}
+					const comparison = condition["comparison"];
+					let swapValues;
+					if (details["type"] === "time") {
+						swapValues = comparison >= 2 && parseInt(condition["min"].replace(/:/g, "")) > parseInt(condition["max"].replace(/:/g, ""));
+					} else {
+						condition["min"] = Math.min(Math.max(detailsMin, condition["min"]), detailsMax);
+						condition["max"] = Math.min(Math.max(detailsMin, condition["max"]), detailsMax);
+						swapValues = comparison >= 2 && condition["min"] > condition["max"];
+					}
+					if (swapValues) {
+						const temp = condition["min"];
+						condition["min"] = condition["max"];
+						condition["max"] = temp;
+					}
+				})));
 				fetch(`/settings?`, {
 					method: "POST",
 					body: "",
@@ -64,10 +91,13 @@ function setup() {
 						"Content-type": "application/json; charset=UTF-8"
 					}
 				}).then(response => response.json()).then(data => {
+					this.setState({edit: false, saveDisabled: false});
 				}).catch(error => {
+					this.setState({edit: true, saveDisabled: false});
 				});
+			} else {
+				this.setState({edit: true});
 			}
-			this.setState({edit: !isEdit});
 		}
 
 		render() {
@@ -85,7 +115,8 @@ function setup() {
 					<input
 						className="input_button"
 						type="submit"
-						value={this.state.edit ? "Save" : "Edit"}
+						disabled={this.state.saveDisabled}
+						value={this.state.edit ? (this.state.saveDisabled ? "Please Wait" : "Save") : "Edit"}
 						onClick={this.editOrSave}
 					/>
 				</div>
@@ -148,7 +179,7 @@ function setup() {
 						{this.portName(index)}
 						<td className="column_fixed_width">Always off</td>
 						<td className="column_conditions"/>
-						<td className="column_fixed_width column_add_conditions"/>
+						<td className="column_add_conditions"/>
 					</tr>
 				);
 			} else {
@@ -171,7 +202,7 @@ function setup() {
 											/>
 										)}
 									</td>
-									<td className="column_fixed_width column_add_conditions">
+									<td className="column_add_conditions">
 										{edit ? availableConditions.map(conditionId =>
 											<AddButton
 												key={`add_${ruleIndex}_${conditionId}`}
@@ -217,9 +248,9 @@ function setup() {
 			const details = CONDITIONS[conditionId];
 			let eventValue = event.target.value;
 			if (details["type"] !== "time") {
-				const stringValue = eventValue.replace(/[^0-9]/g, "");
-				if (stringValue.length > 0) {
-					eventValue = parseInt(stringValue);
+				eventValue = eventValue.replace(/[^0-9-]/g, "");
+				if (eventValue.length > 0 && eventValue !== "-") {
+					eventValue = parseInt(eventValue);
 				}
 				event.target.value = eventValue;
 			}

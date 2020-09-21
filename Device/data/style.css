@@ -255,6 +255,7 @@ th, td {
 
 .column_add_conditions {
 	border-right: 1px solid var(--textColorDisabled);
+	min-width: 4em;
 	text-align: left;
 }
 
