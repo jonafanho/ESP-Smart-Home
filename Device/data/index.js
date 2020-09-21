@@ -4,9 +4,9 @@ const CONDITIONS = {
 	"time": {
 		name: "The time of day is",
 		icon: "⏰",
-		min: 0,
-		max: 1440,
-		conversion: "time"
+		min: "00:00",
+		max: "23:59",
+		type: "time"
 	},
 	"dayOfWeek": {
 		name: "The day of week is",
@@ -18,7 +18,7 @@ const CONDITIONS = {
 		icon: "🌡️",
 		min: -273,
 		max: 1000,
-		unit: "&deg;C"
+		unit: "°C"
 	},
 	"humidity": {
 		name: "The humidity is",
@@ -40,6 +40,8 @@ const CONDITIONS = {
 		values: ["Motion detected"]
 	}
 };
+const COMPARISONS = ["less than", "greater than", "between", "not between"];
+const COMPARISONS_TIME = ["before", "after", "between", "not between"];
 
 function setup() {
 	"use strict";
@@ -107,7 +109,13 @@ function setup() {
 		}
 
 		addCondition(ruleIndex, conditionId, event) {
-			this.props.rules[ruleIndex][conditionId] = Object.assign({}, CONDITIONS[conditionId]);
+			const details = CONDITIONS[conditionId];
+			const isDiscrete = "values" in details;
+			this.props.rules[ruleIndex][conditionId] = {
+				comparison: 0,
+				min: isDiscrete ? 0 : details["min"],
+				max: isDiscrete ? 0 : details["max"]
+			};
 			this.setState({});
 		}
 
@@ -151,7 +159,7 @@ function setup() {
 							return (
 								<tr key={ruleIndex}>
 									{ruleIndex === 0 ? this.portName(index) : null}
-									<td className="column_fixed_width">{ruleIndex === 0 ? "On when" : "or when"}</td>
+									<td className="column_fixed_width">{ruleIndex === 0 ? "Turns on when" : "or when"}</td>
 									<td className="column_conditions">
 										{Object.keys(rules[ruleIndex]).map(conditionId =>
 											<Condition
@@ -194,34 +202,114 @@ function setup() {
 
 		constructor(props) {
 			super(props);
-			this.state = {};
+			this.selectComparison = this.selectComparison.bind(this);
+			this.changeValue = this.changeValue.bind(this);
+		}
+
+		selectComparison(event) {
+			const {condition} = this.props;
+			condition["comparison"] = parseInt(event.target.value);
+			this.setState({});
+		}
+
+		changeValue(dataType, event) {
+			const {conditionId, condition} = this.props;
+			const details = CONDITIONS[conditionId];
+			let eventValue = event.target.value;
+			if (details["type"] !== "time") {
+				const stringValue = eventValue.replace(/[^0-9]/g, "");
+				if (stringValue.length > 0) {
+					eventValue = parseInt(stringValue);
+				}
+				event.target.value = eventValue;
+			}
+			condition[dataType] = eventValue;
+		}
+
+		displayValue(value) {
+			const {conditionId} = this.props;
+			if (CONDITIONS[conditionId]["type"] === "time") {
+				const hour = parseInt(value.toString().substring(0, 2));
+				const pm = hour >= 12;
+				let hourReadable = hour % 12;
+				hourReadable = hourReadable === 0 ? 12 : hourReadable;
+				return hourReadable.toString() + value.toString().substring(2) + " " + (pm ? "PM" : "AM");
+			} else {
+				return value;
+			}
 		}
 
 		render() {
 			const {conditionId, condition, onDelete, edit} = this.props;
 			const details = CONDITIONS[conditionId];
 			const isDiscrete = "values" in details;
+			const comparison = condition["comparison"];
+			const isTime = details["type"] === "time";
 			return (
 				<div className={`condition ${conditionId}`}>
 					{edit ? <div className="clickable delete_button" onClick={onDelete}>✖</div> : null}
-					{condition["icon"]} {details["name"]}
+					{details["icon"]} {details["name"]}
+					<br/>
 					<br/>
 					{isDiscrete ?
-						[...Array(details["values"].length)].map((u, index) =>
-							<div key={index}>
-								<label>
-									<input className="input_checkbox" type="checkbox"/>
-									{details["values"][index]}
-								</label>
+						<div>
+							{[...Array(details["values"].length)].map((u, index) =>
+								<div key={index}>
+									<label>
+										<input className="input_checkbox" disabled={!edit} type="checkbox"/>
+										{details["values"][index]}
+									</label>
+									<br/>
+								</div>
+							)}
+						</div> :
+						edit ? <div>
+								<select defaultValue={comparison} className="input_text" onChange={this.selectComparison}>
+									{[...Array(COMPARISONS.length)].map((u, index) =>
+										<option key={`select_option_${index}`} value={index}>
+											{isTime ? COMPARISONS_TIME[index] : COMPARISONS[index]}
+										</option>
+									)}
+								</select>
 								<br/>
+								<br/>
+								<div hidden={comparison === 0}>
+									<input
+										className="input_text"
+										type={isTime ? "time" : "text"}
+										placeholder={details["min"]}
+										defaultValue={condition["min"]}
+										onChange={(event) => this.changeValue("min", event)}
+									/>
+									{details["unit"]}
+								</div>
+								<div hidden={comparison <= 1}>
+									and
+									<br/>
+								</div>
+								<div hidden={comparison === 1}>
+									<input
+										className="input_text"
+										type={isTime ? "time" : "text"}
+										placeholder={details["max"]}
+										defaultValue={condition["max"]}
+										onChange={(event) => this.changeValue("max", event)}
+									/>
+									{details["unit"]}
+								</div>
+							</div> :
+							<div>
+								{isTime ? COMPARISONS_TIME[comparison] : COMPARISONS[comparison]}
+								<div hidden={comparison === 0}>
+									{this.displayValue(condition["min"])}{details["unit"]}
+								</div>
+								<div hidden={comparison <= 1}>
+									and
+								</div>
+								<div hidden={comparison === 1}>
+									{this.displayValue(condition["max"])}{details["unit"]}
+								</div>
 							</div>
-						) :
-						<select>
-							<option value="lessThan">less than</option>
-							<option value="greaterThan">greater than</option>
-							<option value="inRange">between</option>
-							<option value="outsideRange">not between</option>
-						</select>
 					}
 				</div>
 			);

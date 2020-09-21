@@ -152,7 +152,7 @@ th, td {
 }
 
 .input_text {
-	background-color: transparent;
+	background-color: var(--backgroundColor);
 	border: 1px solid var(--accentColor);
 	-webkit-border-radius: 0.5em;
 	-moz-border-radius: 0.5em;
@@ -160,9 +160,10 @@ th, td {
 	color: var(--textColor);
 	display: inline-block;
 	font-size: var(--textSize);
+	margin: 0;
 	padding: 1em;
 	text-align: left;
-	width: 12em;
+	width: 9em;
 }
 
 .input_checkbox {
@@ -181,6 +182,10 @@ th, td {
 
 .input_checkbox:checked {
 	background-color: var(--textColor);
+}
+
+.input_checkbox:disabled {
+	cursor: auto;
 }
 
 .clickable {
