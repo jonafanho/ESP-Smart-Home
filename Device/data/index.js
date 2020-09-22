@@ -53,7 +53,11 @@ function setup() {
 		constructor(props) {
 			super(props);
 			this.editOrSave = this.editOrSave.bind(this);
-			this.state = {edit: false, saveDisabled: false, rules: Object.assign([], DEFAULT_RULES)};
+			this.state = {
+				edit: false,
+				saveDisabled: false,
+				rules: Object.assign([], STORED_SETTINGS.length === 0 ? DEFAULT_RULES : STORED_SETTINGS)
+			};
 		}
 
 		editOrSave(event) {
@@ -88,9 +92,9 @@ function setup() {
 						}
 					}
 				})));
-				fetch(`/settings?`, {
+				fetch("/settings", {
 					method: "POST",
-					body: "",
+					body: JSON.stringify(rules),
 					headers: {
 						"Content-type": "application/json; charset=UTF-8"
 					}

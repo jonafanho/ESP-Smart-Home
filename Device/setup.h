@@ -21,7 +21,7 @@ public:
 	WiFiSetup(ESP8266WebServer &server1, DNSServer &dnsServer1, const char *apSsid, const char *defaultHtml, const char *setupHtml, const uint8_t setupPin) :
 			server(server1), dnsServer(dnsServer1), AP_SSID(apSsid), DEFAULT_HTML(defaultHtml), SETUP_HTML(setupHtml), SETUP_PIN(setupPin) {}
 
-	void setup(void (*callback)(WiFiStatus, char *, char *)) {
+	void setup(void (*bindServer)(), void (*callback)(WiFiStatus, char *, char *)) {
 		SPIFFS.begin();
 		pinMode(SETUP_PIN, OUTPUT);
 
@@ -31,7 +31,7 @@ public:
 		if (digitalRead(SETUP_PIN)) {
 			startAccessPoint(callback);
 		} else {
-			connectToWifi(callback);
+			connectToWifi(bindServer, callback);
 		}
 	}
 
@@ -70,7 +70,7 @@ private:
 		delay(10);
 	}
 
-	bool connectToWifi(void (*callback)(WiFiStatus, char *, char *)) {
+	bool connectToWifi(void (*bindServer)(), void (*callback)(WiFiStatus, char *, char *)) {
 		delay(10);
 		(*callback)(WIFI_STATUS_CONNECTING, "", "");
 		delay(10);
@@ -103,6 +103,7 @@ private:
 					delay(1000);
 				} else {
 					server.onNotFound([&]() { onRequest(DEFAULT_HTML); });
+					(*bindServer)();
 					server.begin();
 
 					delay(10);

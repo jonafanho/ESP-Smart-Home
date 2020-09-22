@@ -1,0 +1,1 @@
+const STORED_SETTINGS = [];

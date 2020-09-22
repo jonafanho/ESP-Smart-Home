@@ -1,6 +1,7 @@
 #include "setup.h"
 #include "icons.h"
 #include <Adafruit_ST7789.h>
+#include <ArduinoJson.h>
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
 #include <Fonts/FreeSans24pt7b.h>
@@ -16,6 +17,7 @@
 #define ACCESS_POINT_SSID "Smart Home Setup"
 #define DEFAULT_HTML      "index.html"
 #define SETUP_HTML        "setup.html"
+#define SETTINGS_FILE     "/settings.js"
 
 enum TextSize {
 	TEXT_SMALL = 0,
@@ -32,6 +34,7 @@ ESP8266WebServer server(80);
 DNSServer dnsServer;
 WiFiSetup wiFiSetup(server, dnsServer, ACCESS_POINT_SSID, DEFAULT_HTML, SETUP_HTML, PIN_BUTTON);
 Adafruit_ST7789 lcd = Adafruit_ST7789(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
+StaticJsonDocument<4096> json;
 
 void drawText(char *text, const int16_t x, const int16_t y, const TextSize size, const TextAlign align, const uint16_t color = ST77XX_WHITE) {
 	switch (size) {
@@ -60,6 +63,19 @@ void writeHeader(char *text1, char *text2) {
 	drawText(text2, 0, 60, TEXT_SMALL, TEXT_CENTER);
 }
 
+void handleSettings() {
+	File settingsFile = SPIFFS.open(SETTINGS_FILE, "w");
+	if (settingsFile) {
+		settingsFile.print("const STORED_SETTINGS=");
+		settingsFile.print(server.arg("plain"));
+		settingsFile.close();
+		DeserializationError error = deserializeJson(json, server.arg("plain"));
+		if (!error) {
+			server.send(200, "text/html", "{\"status\":\"success\"}");
+		}
+	}
+}
+
 void setup() {
 	pinMode(PIN_RELAY_CS, OUTPUT);
 
@@ -67,7 +83,9 @@ void setup() {
 	lcd.fillScreen(ST77XX_BLACK);
 	lcd.setTextWrap(false);
 
-	wiFiSetup.setup([&](WiFiStatus wiFiStatus, char *title, char *subtitle) {
+	wiFiSetup.setup([&]() {
+		server.on("/settings", HTTP_POST, handleSettings);
+	}, [&](WiFiStatus wiFiStatus, char *title, char *subtitle) {
 		switch (wiFiStatus) {
 			case WIFI_STATUS_AP_STARTING:
 				lcd.drawBitmap(72, 144, ICON_TETHERING, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
