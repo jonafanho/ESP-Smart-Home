@@ -2,6 +2,8 @@
 #include "icons.h"
 #include <Adafruit_ST7789.h>
 #include <ArduinoJson.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
 #include <Fonts/FreeSans24pt7b.h>
@@ -33,6 +35,9 @@ enum TextAlign {
 ESP8266WebServer server(80);
 DNSServer dnsServer;
 WiFiSetup wiFiSetup(server, dnsServer, ACCESS_POINT_SSID, DEFAULT_HTML, SETUP_HTML, PIN_BUTTON);
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org");
+
 Adafruit_ST7789 lcd = Adafruit_ST7789(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
 StaticJsonDocument<4096> json;
 
@@ -63,15 +68,86 @@ void writeHeader(char *text1, char *text2) {
 	drawText(text2, 0, 60, TEXT_SMALL, TEXT_CENTER);
 }
 
+bool checkValue(const JsonPair conditionObject, const int16_t actual) {
+	uint8_t comparison = conditionObject.value()["comparison"].as<uint8_t>();
+	int16_t min = conditionObject.value()["min"].as<int16_t>();
+	int16_t max = conditionObject.value()["max"].as<int16_t>();
+	switch (comparison) {
+		case 0:
+			return actual <= max;
+		case 1:
+			return actual >= min;
+		case 2:
+			return actual >= min && actual <= max;
+		case 3:
+			return actual <= min || actual >= max;
+		default:
+			return false;
+	}
+}
+
+bool checkValueDiscrete(const JsonPair conditionObject, const int8_t actual) {
+	for (JsonVariant item : conditionObject.value()["values"].as<JsonArray>()) {
+		if (item.as<uint8_t>() == actual) {
+			return actual >= 0;
+		}
+	}
+	return actual < 0;
+}
+
+void updateStatus() {
+	timeClient.update();
+
+	uint8_t port = 0;
+	for (JsonVariant rulesArray : json.as<JsonArray>()) {
+		uint8_t rule = 0;
+		for (JsonVariant ruleObject : rulesArray.as<JsonArray>()) {
+			bool portOn = true;
+
+			for (JsonPair conditionObject : ruleObject.as<JsonObject>()) {
+				const char *conditionId = conditionObject.key().c_str();
+
+				if (strcmp(conditionId, "time") == 0) {
+					portOn = portOn && checkValue(conditionObject, timeClient.getHours() * 60 + timeClient.getMinutes());
+				} else if (strcmp(conditionId, "dayOfWeek") == 0) {
+					portOn = portOn && checkValueDiscrete(conditionObject, timeClient.getDay());
+				} else if (strcmp(conditionId, "temperature") == 0) {
+					portOn = portOn && checkValue(conditionObject, 25); // TODO
+				} else if (strcmp(conditionId, "humidity") == 0) {
+					portOn = portOn && checkValue(conditionObject, 50); // TODO
+				} else if (strcmp(conditionId, "light") == 0) {
+					portOn = portOn && checkValue(conditionObject, 50); // TODO
+				} else if (strcmp(conditionId, "proximity") == 0) {
+					portOn = portOn && checkValueDiscrete(conditionObject, 0); // TODO
+				}
+
+				if (!portOn) {
+					break;
+				}
+			}
+
+			if (portOn) {
+				// TODO turn port on
+				break;
+			}
+			rule++;
+		}
+		port++;
+	}
+}
+
 void handleSettings() {
+	timeClient.setTimeOffset(server.arg("timezone").toInt() * -60);
+
 	File settingsFile = SPIFFS.open(SETTINGS_FILE, "w");
 	if (settingsFile) {
 		settingsFile.print("const STORED_SETTINGS=");
 		settingsFile.print(server.arg("plain"));
 		settingsFile.close();
-		DeserializationError error = deserializeJson(json, server.arg("plain"));
-		if (!error) {
+
+		if (!deserializeJson(json, server.arg("plain"))) {
 			server.send(200, "text/html", "{\"status\":\"success\"}");
+			updateStatus();
 		}
 	}
 }

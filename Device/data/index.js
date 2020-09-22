@@ -85,7 +85,7 @@ function setup() {
 						}
 					}
 				})));
-				fetch("/settings", {
+				fetch(`/settings?timezone=${(new Date()).getTimezoneOffset()}`, {
 					method: "POST",
 					body: JSON.stringify(rules),
 					headers: {
