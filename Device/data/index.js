@@ -4,8 +4,8 @@ const CONDITIONS = {
 	"time": {
 		name: "The time of day is",
 		icon: "⏰",
-		min: "00:00",
-		max: "23:59",
+		min: 0,
+		max: 1439,
 		type: "time"
 	},
 	"dayOfWeek": {
@@ -76,16 +76,9 @@ function setup() {
 						if (Number.isNaN(condition["max"]) || condition["max"] === "") {
 							condition["max"] = detailsMax;
 						}
-						const comparison = condition["comparison"];
-						let swapValues;
-						if (details["type"] === "time") {
-							swapValues = comparison >= 2 && parseInt(condition["min"].replace(/:/g, "")) > parseInt(condition["max"].replace(/:/g, ""));
-						} else {
-							condition["min"] = Math.min(Math.max(detailsMin, condition["min"]), detailsMax);
-							condition["max"] = Math.min(Math.max(detailsMin, condition["max"]), detailsMax);
-							swapValues = comparison >= 2 && condition["min"] > condition["max"];
-						}
-						if (swapValues) {
+						condition["min"] = Math.min(Math.max(detailsMin, condition["min"]), detailsMax);
+						condition["max"] = Math.min(Math.max(detailsMin, condition["max"]), detailsMax);
+						if (condition["comparison"] >= 2 && condition["min"] > condition["max"]) {
 							const temp = condition["min"];
 							condition["min"] = condition["max"];
 							condition["max"] = temp;
@@ -151,7 +144,7 @@ function setup() {
 			const details = CONDITIONS[conditionId];
 			const isDiscrete = "values" in details;
 			if (isDiscrete) {
-				this.props.rules[ruleIndex][conditionId] = {comparison: 0, values: []};
+				this.props.rules[ruleIndex][conditionId] = {values: []};
 			} else {
 				this.props.rules[ruleIndex][conditionId] = {comparison: 0, min: details["min"], max: details["max"]};
 			}
@@ -255,23 +248,22 @@ function setup() {
 		changeValue(dataType, event) {
 			const {conditionId, condition} = this.props;
 			const details = CONDITIONS[conditionId];
-			let eventValue = event.target.value;
-			if (details["type"] !== "time") {
-				eventValue = eventValue.replace(/[^0-9-]/g, "");
-				if (eventValue.length > 0 && eventValue !== "-") {
-					eventValue = parseInt(eventValue);
-				}
-				event.target.value = eventValue;
+			const value = event.target.value;
+			if (details["type"] === "time") {
+				const timeSplit = value.split(":");
+				condition[dataType] = parseInt(timeSplit[0]) * 60 + parseInt(timeSplit[1]);
+			} else {
+				condition[dataType] = parseInt(value);
 			}
-			condition[dataType] = eventValue;
 		}
 
 		changeDiscrete(event) {
 			const {condition} = this.props;
-			const value = event.target.value;
+			const value = parseInt(event.target.value);
 			if (event.target.checked) {
 				if (!condition["values"].includes(value)) {
 					condition["values"].push(value);
+					condition["values"].sort();
 				}
 			} else {
 				condition["values"].splice(condition["values"].indexOf(value), 1);
@@ -312,9 +304,9 @@ function setup() {
 										<label>
 											<input
 												className="input_checkbox"
-												defaultChecked={condition["values"].includes(value)}
+												defaultChecked={condition["values"].includes(index)}
 												type="checkbox"
-												value={value}
+												value={index}
 												onChange={this.changeDiscrete}
 											/>
 											{value}
@@ -322,7 +314,7 @@ function setup() {
 										<br/>
 									</div>
 								);
-							}) : condition["values"].length > 0 ? details["values"].filter(value => condition["values"].includes(value)).toString().replace(/,/g, ", ") : details["none"]}
+							}) : condition["values"].length > 0 ? condition["values"].map(index => details["values"][index]).toString().replace(/,/g, ", ") : details["none"]}
 						</div> :
 						edit ? <div>
 								<select defaultValue={comparison} className="input_text" onChange={this.selectComparison}>
@@ -335,9 +327,8 @@ function setup() {
 								<br/>
 								<br/>
 								<div hidden={comparison === 0}>
-									<input
-										className="input_text"
-										type={isTime ? "time" : "text"}
+									<NumberInput
+										isTime={isTime}
 										placeholder={details["min"]}
 										defaultValue={condition["min"]}
 										onChange={(event) => this.changeValue("min", event)}
@@ -349,9 +340,8 @@ function setup() {
 									<br/>
 								</div>
 								<div hidden={comparison === 1}>
-									<input
-										className="input_text"
-										type={isTime ? "time" : "text"}
+									<NumberInput
+										isTime={isTime}
 										placeholder={details["max"]}
 										defaultValue={condition["max"]}
 										onChange={(event) => this.changeValue("max", event)}
@@ -362,9 +352,9 @@ function setup() {
 							<div>
 								{isTime ? COMPARISONS_TIME[comparison] : COMPARISONS[comparison]}
 								&nbsp;
-								{comparison === 0 ? "" : <>{this.displayValue(condition["min"])}{details["unit"]}</>}
+								{comparison === 0 ? "" : <>{isTime ? formatTime(condition["min"], true) : condition["min"]}{details["unit"]}</>}
 								{comparison <= 1 ? "" : <><br/>and&nbsp;</>}
-								{comparison === 1 ? "" : <>{this.displayValue(condition["max"])}{details["unit"]}</>}
+								{comparison === 1 ? "" : <>{isTime ? formatTime(condition["max"], true) : condition["max"]}{details["unit"]}</>}
 							</div>
 					}
 				</div>
@@ -372,10 +362,50 @@ function setup() {
 		}
 	}
 
+	function NumberInput(props) {
+		const {isTime, placeholder, defaultValue, onChange} = props;
+
+		function formatNumber(event) {
+			let value = event.target.value;
+			if (!isTime) {
+				value = value.replace(/[^0-9-]/g, "");
+				if (value.length > 0 && value !== "-") {
+					value = parseInt(value);
+				}
+				event.target.value = value;
+			}
+			onChange(event);
+		}
+
+		return (
+			<input
+				className="input_text"
+				type={isTime ? "time" : "text"}
+				placeholder={isTime ? formatTime(placeholder) : placeholder}
+				defaultValue={isTime ? formatTime(defaultValue) : defaultValue}
+				onChange={(event) => formatNumber(event)}
+			/>
+		);
+	}
+
 	if (window.location.pathname !== "/") {
 		window.location.pathname = "/";
 	}
 	ReactDOM.render(<MainScreen/>, document.querySelector("#react-root"));
+}
+
+function formatTime(value, readable = false) {
+	const hour = Math.floor(value / 60);
+	const min = Math.floor(value % 60);
+	if (readable) {
+		let hour12 = hour % 12;
+		if (hour12 === 0) {
+			hour12 = 12;
+		}
+		return hour12.toString() + ":" + min.toString().padStart(2, "0") + " " + (hour >= 12 ? "PM" : "AM");
+	} else {
+		return hour.toString().padStart(2, "0") + ":" + min.toString().padStart(2, "0");
+	}
 }
 
 setup();
