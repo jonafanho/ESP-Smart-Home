@@ -1,36 +1,27 @@
 #include "setup.h"
+#include "lcd.h"
 #include "icons.h"
-#include <Adafruit_ST7789.h>
 #include <ArduinoJson.h>
+#include <DHTesp.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-#include <Fonts/FreeSans12pt7b.h>
-#include <Fonts/FreeSans18pt7b.h>
-#include <Fonts/FreeSans24pt7b.h>
-
-#define LCD_SIZE   240
 
 #define PIN_BUTTON   D0
+#define PIN_MOTION   D1
+#define PIN_RELAY_CS D2
+#define PIN_LCD_DC   D3
+#define PIN_LCD_RST  D4
+#define PIN_DHT11    D6
 #define PIN_LCD_CS   D8
-#define PIN_LCD_DC   D1
-#define PIN_LCD_RST  D2
-#define PIN_RELAY_CS D3
+#define PIN_LIGHT    A0
 
 #define ACCESS_POINT_SSID "Smart Home Setup"
 #define DEFAULT_HTML      "index.html"
 #define SETUP_HTML        "setup.html"
 #define SETTINGS_FILE     "/settings.js"
 
-enum TextSize {
-	TEXT_SMALL = 0,
-	TEXT_MEDIUM = 1,
-	TEXT_LARGE = 2
-};
-enum TextAlign {
-	TEXT_LEFT = 0,
-	TEXT_CENTER = 1,
-	TEXT_RIGHT = 2
-};
+#define POLL_SENSORS_MILLIS 5000
+#define MOTION_COOLDOWN     10000
 
 ESP8266WebServer server(80);
 DNSServer dnsServer;
@@ -38,35 +29,20 @@ WiFiSetup wiFiSetup(server, dnsServer, ACCESS_POINT_SSID, DEFAULT_HTML, SETUP_HT
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
-Adafruit_ST7789 lcd = Adafruit_ST7789(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
+LCD lcd = LCD(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
+DHTesp dht;
 StaticJsonDocument<4096> json;
 
-void drawText(char *text, const int16_t x, const int16_t y, const TextSize size, const TextAlign align, const uint16_t color = ST77XX_WHITE) {
-	switch (size) {
-		default:
-			lcd.setFont(&FreeSans12pt7b);
-			break;
-		case 1:
-			lcd.setFont(&FreeSans18pt7b);
-			break;
-		case 2:
-			lcd.setFont(&FreeSans24pt7b);
-			break;
-	}
-
-	int16_t x1, y1;
-	uint16_t width, height;
-	lcd.getTextBounds(text, x, y, &x1, &y1, &width, &height);
-	lcd.setCursor(x + align * (LCD_SIZE - width) / 2, y);
-
-	lcd.setTextColor(color);
-	lcd.print(text);
-}
-
-void writeHeader(char *text1, char *text2) {
-	drawText(text1, 0, 24, TEXT_SMALL, TEXT_CENTER);
-	drawText(text2, 0, 60, TEXT_SMALL, TEXT_CENTER);
-}
+unsigned long oldMillis = 0;
+unsigned long motionOffMillis = 0;
+bool sensorMotion = false;
+int8_t sensorTemperature = 0;
+int8_t sensorHumidity = 0;
+uint8_t sensorLight = 0;
+uint8_t sensorHour = 0;
+uint8_t sensorMinute = 0;
+uint8_t sensorDayOfWeek = 0;
+char *ipAddress;
 
 bool checkValue(const JsonPair conditionObject, const int16_t actual) {
 	uint8_t comparison = conditionObject.value()["comparison"].as<uint8_t>();
@@ -96,8 +72,7 @@ bool checkValueDiscrete(const JsonPair conditionObject, const int8_t actual) {
 }
 
 void updateStatus() {
-	timeClient.update();
-
+	uint8_t portResult = 0;
 	uint8_t port = 0;
 	for (JsonVariant rulesArray : json.as<JsonArray>()) {
 		uint8_t rule = 0;
@@ -108,17 +83,17 @@ void updateStatus() {
 				const char *conditionId = conditionObject.key().c_str();
 
 				if (strcmp(conditionId, "time") == 0) {
-					portOn = portOn && checkValue(conditionObject, timeClient.getHours() * 60 + timeClient.getMinutes());
+					portOn = portOn && checkValue(conditionObject, sensorHour * 60 + sensorMinute);
 				} else if (strcmp(conditionId, "dayOfWeek") == 0) {
-					portOn = portOn && checkValueDiscrete(conditionObject, timeClient.getDay());
+					portOn = portOn && checkValueDiscrete(conditionObject, sensorDayOfWeek);
 				} else if (strcmp(conditionId, "temperature") == 0) {
-					portOn = portOn && checkValue(conditionObject, 25); // TODO
+					portOn = portOn && checkValue(conditionObject, sensorTemperature);
 				} else if (strcmp(conditionId, "humidity") == 0) {
-					portOn = portOn && checkValue(conditionObject, 50); // TODO
+					portOn = portOn && checkValue(conditionObject, sensorHumidity);
 				} else if (strcmp(conditionId, "light") == 0) {
-					portOn = portOn && checkValue(conditionObject, 50); // TODO
+					portOn = portOn && checkValue(conditionObject, sensorLight);
 				} else if (strcmp(conditionId, "proximity") == 0) {
-					portOn = portOn && checkValueDiscrete(conditionObject, 0); // TODO
+					portOn = portOn && checkValueDiscrete(conditionObject, sensorMotion ? 0 : -1);
 				}
 
 				if (!portOn) {
@@ -127,13 +102,17 @@ void updateStatus() {
 			}
 
 			if (portOn) {
-				// TODO turn port on
+				portResult |= (1 << port);
 				break;
 			}
 			rule++;
 		}
 		port++;
 	}
+
+	digitalWrite(PIN_RELAY_CS, LOW);
+	SPI.transfer(portResult);
+	digitalWrite(PIN_RELAY_CS, HIGH);
 }
 
 void handleSettings() {
@@ -153,49 +132,75 @@ void handleSettings() {
 }
 
 void setup() {
+	lcd.setup();
+	pinMode(PIN_MOTION, INPUT);
 	pinMode(PIN_RELAY_CS, OUTPUT);
-
-	lcd.init(LCD_SIZE, LCD_SIZE, SPI_MODE2);
-	lcd.fillScreen(ST77XX_BLACK);
-	lcd.setTextWrap(false);
+	dht.setup(PIN_DHT11, DHTesp::DHT11);
 
 	wiFiSetup.setup([&]() {
 		server.on("/settings", HTTP_POST, handleSettings);
-	}, [&](WiFiStatus wiFiStatus, char *title, char *subtitle) {
+	}, [&](WiFiStatus wiFiStatus, char *subtitle) {
 		switch (wiFiStatus) {
-			case WIFI_STATUS_AP_STARTING:
-				lcd.drawBitmap(72, 144, ICON_TETHERING, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
-				writeHeader("Starting Access Point", ACCESS_POINT_SSID);
-				break;
-			case WIFI_STATUS_AP_STARTED:
-				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
-				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
-				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
-				writeHeader("Connect to WiFi:", "");
+			case WIFI_STATUS_AP:
+				lcd.drawLargeIcon(ICON_TETHERING, "Connect to WiFi:", ACCESS_POINT_SSID);
+				lcd.drawMiddleTitle(subtitle);
 				break;
 			case WIFI_STATUS_CONNECTING:
-				lcd.drawBitmap(72, 144, ICON_WIFI_ON, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
-				writeHeader("Connecting to WiFi", subtitle);
+				lcd.drawLargeIcon(ICON_WIFI_ON, "Connecting to WiFi", subtitle);
 				break;
 			case WIFI_STATUS_CONNECTED:
-				lcd.drawBitmap(120, 192, ICON_TICK_OUTLINE, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_BLACK);
-				lcd.drawBitmap(120, 192, ICON_TICK, ICON_TICK_SIZE, ICON_TICK_SIZE, ST77XX_GREEN);
-				lcd.fillRect(0, 0, LCD_SIZE, 36, ST77XX_BLACK);
-				writeHeader("Connected to WiFi", subtitle);
+				ipAddress = subtitle;
 				break;
 			case WIFI_STATUS_FAILED:
-				lcd.fillRect(72, 144, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_BLACK);
-				lcd.drawBitmap(72, 144, ICON_WIFI_OFF, ICON_STANDARD_SIZE, ICON_STANDARD_SIZE, ST77XX_WHITE);
-				lcd.fillRect(0, 0, LCD_SIZE, 72, ST77XX_BLACK);
-				writeHeader("WiFi Not Connected", "Please try again.");
+				lcd.drawLargeIcon(ICON_WIFI_OFF, "WiFi Not Connected", "Please try again.");
 				break;
 		}
-		lcd.fillRect(0, 84, LCD_SIZE, 54, ST77XX_BLACK);
-		drawText(title, 0, 120, TEXT_MEDIUM, TEXT_CENTER);
 	});
 }
 
 void loop() {
-	dnsServer.processNextRequest();
-	server.handleClient();
+	timeClient.update();
+	uint8_t tempHour = timeClient.getHours();
+	uint8_t tempMinute = timeClient.getMinutes();
+	uint8_t tempDayOfWeek = timeClient.getDay();
+
+	TempAndHumidity tempAndHumidity = dht.getTempAndHumidity();
+	int8_t tempTemperature = round(tempAndHumidity.temperature);
+	int8_t tempHumidity = round(tempAndHumidity.humidity);
+
+	uint8_t tempLight = (uint8_t)(analogRead(PIN_LIGHT) / 10.24 + 0.5);
+
+	sensorHour = tempHour;
+	sensorMinute = tempMinute;
+	sensorDayOfWeek = tempDayOfWeek;
+	if (tempHumidity >= 0) {
+		sensorTemperature = tempTemperature;
+		sensorHumidity = tempHumidity;
+	}
+	sensorLight = tempLight;
+
+	updateStatus();
+
+	while (millis() - oldMillis < POLL_SENSORS_MILLIS) {
+		dnsServer.processNextRequest();
+		server.handleClient();
+
+		if (digitalRead(PIN_MOTION)) {
+			if (!sensorMotion) {
+				sensorMotion = true;
+				motionOffMillis = 0;
+				updateStatus();
+				oldMillis = millis();
+			}
+		} else {
+			if (motionOffMillis == 0) {
+				motionOffMillis = millis();
+			} else if (millis() - motionOffMillis > MOTION_COOLDOWN && sensorMotion) {
+				sensorMotion = false;
+				updateStatus();
+				oldMillis = millis();
+			}
+		}
+	}
+	oldMillis = millis();
 }
