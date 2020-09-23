@@ -36,13 +36,13 @@ StaticJsonDocument<4096> json;
 unsigned long oldMillis = 0;
 unsigned long motionOffMillis = 0;
 bool sensorMotion = false;
-int8_t sensorTemperature = 0;
-int8_t sensorHumidity = 0;
-uint8_t sensorLight = 0;
-uint8_t sensorHour = 0;
-uint8_t sensorMinute = 0;
-uint8_t sensorDayOfWeek = 0;
-char *ipAddress;
+int8_t sensorTemperature = 127;
+uint8_t sensorHumidity = 101;
+uint8_t sensorLight = 101;
+uint8_t sensorHour = 24;
+uint8_t sensorMinute = 60;
+uint8_t sensorDayOfWeek = 7;
+char ssid[32], ipAddress[16];
 
 bool checkValue(const JsonPair conditionObject, const int16_t actual) {
 	uint8_t comparison = conditionObject.value()["comparison"].as<uint8_t>();
@@ -147,15 +147,23 @@ void setup() {
 				break;
 			case WIFI_STATUS_CONNECTING:
 				lcd.drawLargeIcon(ICON_WIFI_ON, "Connecting to WiFi", subtitle);
+				sprintf(ssid, "%s", subtitle);
 				break;
 			case WIFI_STATUS_CONNECTED:
-				ipAddress = subtitle;
+				lcd.clear();
+				sprintf(ipAddress, "%s", subtitle);
 				break;
 			case WIFI_STATUS_FAILED:
 				lcd.drawLargeIcon(ICON_WIFI_OFF, "WiFi Not Connected", "Please try again.");
 				break;
 		}
 	});
+
+	lcd.drawWiFiDetails(ssid, ipAddress);
+	lcd.drawSensorIcon(ICON_TEMPERATURE, 0);
+	lcd.drawSensorIcon(ICON_HUMIDITY, 1);
+	lcd.drawSensorIcon(ICON_LIGHT, 2);
+	lcd.drawSensorIcon(ICON_WIFI_SMALL, 3);
 }
 
 void loop() {
@@ -166,14 +174,36 @@ void loop() {
 
 	TempAndHumidity tempAndHumidity = dht.getTempAndHumidity();
 	int8_t tempTemperature = round(tempAndHumidity.temperature);
-	int8_t tempHumidity = round(tempAndHumidity.humidity);
+	uint8_t tempHumidity = round(tempAndHumidity.humidity);
 
 	uint8_t tempLight = (uint8_t)(analogRead(PIN_LIGHT) / 10.24 + 0.5);
+
+	if (sensorHour != tempHour || sensorMinute != tempMinute) {
+		lcd.drawTime(tempHour, tempMinute);
+	}
+	if (sensorDayOfWeek != tempDayOfWeek) {
+		lcd.drawDayOfWeek(tempDayOfWeek);
+	}
+	if (sensorTemperature != tempTemperature) {
+		char text[5];
+		sprintf(text, "%d  C", tempTemperature);
+		lcd.drawSensorReading(text, 0, true);
+	}
+	if (sensorHumidity != tempHumidity && tempHumidity <= 100) {
+		char text[5];
+		sprintf(text, "%d%%", tempHumidity);
+		lcd.drawSensorReading(text, 1);
+	}
+	if (sensorLight != tempLight) {
+		char text[5];
+		sprintf(text, "%d%%", tempLight);
+		lcd.drawSensorReading(text, 2);
+	}
 
 	sensorHour = tempHour;
 	sensorMinute = tempMinute;
 	sensorDayOfWeek = tempDayOfWeek;
-	if (tempHumidity >= 0) {
+	if (tempHumidity <= 100) {
 		sensorTemperature = tempTemperature;
 		sensorHumidity = tempHumidity;
 	}

@@ -66,10 +66,6 @@ private:
 	}
 
 	bool connectToWifi(void (*bindServer)(), void (*callback)(WiFiStatus, char *)) {
-		delay(10);
-		(*callback)(WIFI_STATUS_CONNECTING, "");
-		delay(10);
-
 		File wifiFile = SPIFFS.open(WIFI_FILE, "r");
 		if (wifiFile) {
 			char ssid[64], password[64];
@@ -87,11 +83,12 @@ private:
 			}
 			wifiFile.close();
 
-			WiFi.mode(WIFI_STA);
-			WiFi.begin(ssid, password);
 			delay(10);
 			(*callback)(WIFI_STATUS_CONNECTING, ssid);
 			delay(10);
+
+			WiFi.mode(WIFI_STA);
+			WiFi.begin(ssid, password);
 			for (uint8_t i = 0; i < 10; i++) {
 				if (WiFi.status() != WL_CONNECTED) {
 					delay(2000);
