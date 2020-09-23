@@ -56,7 +56,7 @@ function setup() {
 			this.state = {
 				edit: false,
 				saveDisabled: false,
-				rules: Object.assign([], STORED_SETTINGS.length === 0 ? DEFAULT_RULES : STORED_SETTINGS)
+				rules: Object.assign([], "rules" in STORED_SETTINGS ? STORED_SETTINGS["rules"] : DEFAULT_RULES)
 			};
 		}
 
@@ -85,9 +85,9 @@ function setup() {
 						}
 					}
 				})));
-				fetch(`/settings?timezone=${(new Date()).getTimezoneOffset()}`, {
+				fetch("/settings", {
 					method: "POST",
-					body: JSON.stringify(rules),
+					body: JSON.stringify({timezone: (new Date()).getTimezoneOffset() * -60, rules: rules}),
 					headers: {
 						"Content-type": "application/json; charset=UTF-8"
 					}

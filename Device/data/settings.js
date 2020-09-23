@@ -1,1 +1,1 @@
-const STORED_SETTINGS = [];
+const STORED_SETTINGS = {};

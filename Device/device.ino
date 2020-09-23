@@ -74,7 +74,7 @@ bool checkValueDiscrete(const JsonPair conditionObject, const int8_t actual) {
 void updateStatus() {
 	uint8_t portResult = 0;
 	uint8_t port = 0;
-	for (JsonVariant rulesArray : json.as<JsonArray>()) {
+	for (JsonVariant rulesArray : json["rules"].as<JsonArray>()) {
 		uint8_t rule = 0;
 		for (JsonVariant ruleObject : rulesArray.as<JsonArray>()) {
 			bool portOn = true;
@@ -116,8 +116,6 @@ void updateStatus() {
 }
 
 void handleSettings() {
-	timeClient.setTimeOffset(server.arg("timezone").toInt() * -60);
-
 	File settingsFile = SPIFFS.open(SETTINGS_FILE, "w");
 	if (settingsFile) {
 		settingsFile.print("const STORED_SETTINGS=");
@@ -126,6 +124,7 @@ void handleSettings() {
 
 		if (!deserializeJson(json, server.arg("plain"))) {
 			server.send(200, "text/html", "{\"status\":\"success\"}");
+			timeClient.setTimeOffset(json["timezone"]);
 			updateStatus();
 		}
 	}
@@ -158,6 +157,15 @@ void setup() {
 				break;
 		}
 	});
+
+	File settingsFile = SPIFFS.open(SETTINGS_FILE, "r");
+	if (settingsFile) {
+		settingsFile.readStringUntil('=');
+		if (!deserializeJson(json, settingsFile)) {
+			timeClient.setTimeOffset(json["timezone"]);
+		};
+		settingsFile.close();
+	}
 
 	lcd.drawWiFiDetails(ssid, ipAddress);
 	lcd.drawSensorIcon(ICON_TEMPERATURE, 0);
