@@ -56,6 +56,7 @@ function setup() {
 			this.state = {
 				edit: false,
 				saveDisabled: false,
+				message: "",
 				rules: Object.assign([], "rules" in STORED_SETTINGS ? STORED_SETTINGS["rules"] : DEFAULT_RULES)
 			};
 		}
@@ -92,9 +93,19 @@ function setup() {
 						"Content-type": "application/json; charset=UTF-8"
 					}
 				}).then(response => response.json()).then(data => {
-					this.setState({edit: false, saveDisabled: false});
+					this.setState({
+						edit: false,
+						saveDisabled: false,
+						message: "Configuration saved. You're good to go!"
+					});
+					setTimeout(() => this.setState({message: ""}), 5000);
 				}).catch(error => {
-					this.setState({edit: true, saveDisabled: false});
+					this.setState({
+						edit: true,
+						saveDisabled: false,
+						message: "Failed to save. Please make sure that the device is connected to the network and try again."
+					});
+					setTimeout(() => this.setState({message: ""}), 5000);
 				});
 			} else {
 				this.setState({edit: true});
@@ -120,6 +131,7 @@ function setup() {
 						value={this.state.edit ? (this.state.saveDisabled ? "Please Wait" : "Save") : "Edit"}
 						onClick={this.editOrSave}
 					/>
+					<p>&nbsp;{this.state.message}&nbsp;</p>
 				</div>
 			);
 		}

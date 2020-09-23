@@ -68,7 +68,7 @@ public:
 	}
 
 	void drawSensorReading(char *text, uint8_t row, bool drawDegree = false) {
-		lcd.fillRect(60, 36 + 48 * row, 180, 48, ST77XX_BLACK);
+		lcd.fillRect(60, 36 + 48 * row, 168, 48, ST77XX_BLACK);
 		drawText(text, 60, 72 + 48 * row, TEXT_MEDIUM, TEXT_LEFT);
 
 		if (drawDegree) {
@@ -83,6 +83,16 @@ public:
 	void drawWiFiDetails(char *ssid, char *ipAddress) {
 		drawText(ssid, 60, 204, TEXT_SMALL, TEXT_LEFT);
 		drawText(ipAddress, 60, 228, TEXT_SMALL, TEXT_LEFT);
+	}
+
+	void drawPortOutput(uint8_t ports) {
+		for (uint8_t i = 0; i < 4; i++) {
+			lcd.fillRect(236, 37 + 48 * i, 4, 46, ports & (1 << i) ? ST77XX_WHITE : ST77XX_BLACK);
+		}
+	}
+
+	void enable(bool enable) {
+		lcd.enableDisplay(enable);
 	}
 
 private:

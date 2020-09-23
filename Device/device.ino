@@ -72,6 +72,8 @@ bool checkValueDiscrete(const JsonPair conditionObject, const int8_t actual) {
 }
 
 void updateStatus() {
+	lcd.enable(sensorMotion);
+
 	uint8_t portResult = 0;
 	uint8_t port = 0;
 	for (JsonVariant rulesArray : json["rules"].as<JsonArray>()) {
@@ -113,6 +115,7 @@ void updateStatus() {
 	digitalWrite(PIN_RELAY_CS, LOW);
 	SPI.transfer(portResult);
 	digitalWrite(PIN_RELAY_CS, HIGH);
+	lcd.drawPortOutput(portResult);
 }
 
 void handleSettings() {
@@ -224,9 +227,9 @@ void loop() {
 		server.handleClient();
 
 		if (digitalRead(PIN_MOTION)) {
+			motionOffMillis = 0;
 			if (!sensorMotion) {
 				sensorMotion = true;
-				motionOffMillis = 0;
 				updateStatus();
 				oldMillis = millis();
 			}
