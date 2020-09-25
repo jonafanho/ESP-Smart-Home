@@ -63,6 +63,11 @@ private:
 		delay(10);
 		(*callback)(WIFI_STATUS_AP, const_cast<char *> (apIp.toString().c_str()));
 		delay(10);
+
+		while (true) {
+			dnsServer.processNextRequest();
+			server.handleClient();
+		}
 	}
 
 	bool connectToWifi(void (*bindServer)(), void (*callback)(WiFiStatus, char *)) {

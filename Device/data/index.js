@@ -329,7 +329,11 @@ function setup() {
 							}) : condition["values"].length > 0 ? condition["values"].map(index => details["values"][index]).toString().replace(/,/g, ", ") : details["none"]}
 						</div> :
 						edit ? <div>
-								<select defaultValue={comparison} className="input_text" onChange={this.selectComparison}>
+								<select
+									defaultValue={comparison}
+									className="input_text smaller"
+									onChange={this.selectComparison}
+								>
 									{[...Array(COMPARISONS.length)].map((u, index) =>
 										<option key={`select_option_${index}`} value={index}>
 											{isTime ? COMPARISONS_TIME[index] : COMPARISONS[index]}
@@ -391,7 +395,7 @@ function setup() {
 
 		return (
 			<input
-				className="input_text"
+				className="input_text smaller"
 				type={isTime ? "time" : "text"}
 				placeholder={isTime ? formatTime(placeholder) : placeholder}
 				defaultValue={isTime ? formatTime(defaultValue) : defaultValue}

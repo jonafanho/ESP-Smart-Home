@@ -12,7 +12,7 @@
 #define PIN_LCD_DC   D3
 #define PIN_LCD_RST  D4
 #define PIN_DHT11    D6
-#define PIN_LCD_CS   D8
+#define PIN_RC       D8
 #define PIN_LIGHT    A0
 
 #define ACCESS_POINT_SSID "Smart Home Setup"
@@ -29,7 +29,7 @@ WiFiSetup wiFiSetup(server, dnsServer, ACCESS_POINT_SSID, DEFAULT_HTML, SETUP_HT
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
-LCD lcd = LCD(PIN_LCD_CS, PIN_LCD_DC, PIN_LCD_RST);
+LCD lcd = LCD(-1, PIN_LCD_DC, PIN_LCD_RST);
 DHTesp dht;
 StaticJsonDocument<4096> json;
 

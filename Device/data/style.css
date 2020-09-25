@@ -160,9 +160,13 @@ th, td {
 	color: var(--textColor);
 	display: inline-block;
 	font-size: var(--textSize);
-	margin: 0;
 	padding: 1em;
 	text-align: left;
+	width: 12em;
+}
+
+.input_text.smaller {
+	margin: 0;
 	width: 9em;
 }
 
