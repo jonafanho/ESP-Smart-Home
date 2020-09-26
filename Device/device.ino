@@ -21,7 +21,7 @@
 #define SETTINGS_FILE     "/settings.js"
 
 #define POLL_SENSORS_MILLIS 5000
-#define MOTION_COOLDOWN     10000
+#define MOTION_COOLDOWN     120000
 
 ESP8266WebServer server(80);
 DNSServer dnsServer;
@@ -35,7 +35,7 @@ StaticJsonDocument<4096> json;
 
 unsigned long oldMillis = 0;
 unsigned long motionOffMillis = 0;
-bool sensorMotion = false;
+bool sensorMotion = true;
 int8_t sensorTemperature = 127;
 uint8_t sensorHumidity = 101;
 uint8_t sensorLight = 101;
@@ -63,12 +63,14 @@ bool checkValue(const JsonPair conditionObject, const int16_t actual) {
 }
 
 bool checkValueDiscrete(const JsonPair conditionObject, const int8_t actual) {
+	bool iterated = false;
 	for (JsonVariant item : conditionObject.value()["values"].as<JsonArray>()) {
+		iterated = true;
 		if (item.as<uint8_t>() == actual) {
 			return actual >= 0;
 		}
 	}
-	return actual < 0;
+	return iterated ? false : actual < 0;
 }
 
 void updateStatus() {
@@ -112,9 +114,13 @@ void updateStatus() {
 		port++;
 	}
 
+	delay(100);
 	digitalWrite(PIN_RELAY_CS, LOW);
+	delay(100);
 	SPI.transfer(portResult);
+	delay(100);
 	digitalWrite(PIN_RELAY_CS, HIGH);
+	delay(100);
 	lcd.drawPortOutput(portResult);
 }
 
@@ -157,6 +163,8 @@ void setup() {
 				break;
 			case WIFI_STATUS_FAILED:
 				lcd.drawLargeIcon(ICON_WIFI_OFF, "WiFi Not Connected", "Please try again.");
+				delay(2000);
+				lcd.clear();
 				break;
 		}
 	});
