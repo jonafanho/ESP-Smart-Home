@@ -6,6 +6,9 @@
 #define PIN_LED_1     PB7
 #define PIN_LED_READY PC14
 
+#define ANGLE_ON  140
+#define ANGLE_OFF  40
+
 #define TWO_MINUTES 120000
 #define ONE_MINUTE   60000
 #define FLASHING     10000
@@ -18,13 +21,17 @@ void drawLights(bool two, bool one, bool ready) {
 	digitalWrite(PIN_LED_READY, ready);
 }
 
-void setup() {
-	delay(500);
-	servo.attach(PIN_SERVO);
-	delay(500);
+void moveServo(uint8_t angle) {
+	delay(10);
+	servo.write(angle);
+	delay(10);
 	servo.write(90);
-	delay(500);
+	delay(10);
+}
 
+void setup() {
+	servo.attach(PIN_SERVO);
+	moveServo(90);
 	pinMode(PIN_MOTION, INPUT);
 	pinMode(PIN_LED_2, OUTPUT);
 	pinMode(PIN_LED_1, OUTPUT);
@@ -42,12 +49,7 @@ void loop() {
 
 		if (!sensorMotion) {
 			sensorMotion = true;
-
-			delay(500);
-			servo.write(40);
-			delay(500);
-			servo.write(90);
-			delay(500);
+			moveServo(ANGLE_ON);
 		}
 	} else {
 		if (motionOffMillis == 0) {
@@ -56,12 +58,7 @@ void loop() {
 			if (millis() - motionOffMillis > TWO_MINUTES) {
 				drawLights(0, 0, 1);
 				sensorMotion = false;
-
-				delay(500);
-				servo.write(140);
-				delay(500);
-				servo.write(90);
-				delay(500);
+				moveServo(ANGLE_OFF);
 			} else if (millis() - motionOffMillis > ONE_MINUTE) {
 				bool on = millis() - motionOffMillis < TWO_MINUTES - FLASHING || (millis() % 1000) > 500;
 				drawLights(0, on, 0);
