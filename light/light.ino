@@ -22,16 +22,18 @@ void drawLights(bool two, bool one, bool ready) {
 }
 
 void moveServo(uint8_t angle) {
-	delay(10);
+	delay(100);
 	servo.write(angle);
-	delay(10);
+	delay(500);
 	servo.write(90);
-	delay(10);
+	delay(100);
 }
 
 void setup() {
 	servo.attach(PIN_SERVO);
-	moveServo(90);
+	delay(100);
+	servo.write(90);
+	delay(100);
 	pinMode(PIN_MOTION, INPUT);
 	pinMode(PIN_LED_2, OUTPUT);
 	pinMode(PIN_LED_1, OUTPUT);
@@ -40,7 +42,7 @@ void setup() {
 }
 
 unsigned long motionOffMillis = 0;
-bool sensorMotion = true;
+bool sensorMotion = false;
 
 void loop() {
 	if (digitalRead(PIN_MOTION)) {
